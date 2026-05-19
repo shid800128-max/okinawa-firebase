@@ -721,7 +721,7 @@ html,body{
 .leaflet-control-attribution{font-size:9px;opacity:0.5;}
 /* iOS touch fix: 確保 header / panel 不被 Leaflet touch-action 影響 */
 .hdr,.hdr *,.panel,.panel *,.overlay,.overlay *{touch-action:auto;-webkit-overflow-scrolling:touch;}
-.tab,.vsw,.mbtn,.add-btn,.phandle,.del-day-btn,.del-reveal,.act,.stop-wrap,.stop{touch-action:manipulation;}
+.tab,.vsw,.mbtn,.add-btn,.phandle,.del-day-btn,.sdel,.act,.stop-wrap,.stop{touch-action:manipulation;}
 
 /* ── HEADER ── */
 .hdr{
@@ -903,19 +903,9 @@ html,body{
 .rlist li::before{content:'•';position:absolute;left:2px;color:var(--pink);font-weight:700;}
 .rlist li b{color:var(--text);font-weight:600;}
 
-/* ── 左滑刪除 ── */
-.stop-wrap{
-  position:relative;border-radius:16px;overflow:hidden;
-}
-.panel.s-full .stop-wrap{margin-bottom:10px;}
-.del-reveal{
-  position:absolute;right:0;top:0;bottom:0;width:80px;
-  background:linear-gradient(160deg,#ef4444,#dc2626);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:4px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;
-  user-select:none;-webkit-user-select:none;
-}
-.del-reveal span{font-size:18px;line-height:1;}
+/* ── 卡片容器 ── */
+.stop-wrap{margin-bottom:10px;}
+.sdel{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);border-radius:6px;color:#ef4444;font-size:13px;padding:3px 6px;cursor:pointer;font-family:inherit;line-height:1;touch-action:manipulation;}
 
 /* 4 Action buttons — only in trip (s-full) */
 .acts{display:none;}
@@ -1479,7 +1469,6 @@ function renderStops() {
     var cvs  = 'https://www.google.com/maps/search/' + encodeURIComponent('便利商店') + '/@' + coord + ',15z';
     var sight= 'https://www.google.com/maps/search/' + encodeURIComponent('景點') + '/@' + coord + ',14z';
     return '<div class="stop-wrap" data-i="' + i + '">' +
-      '<div class="del-reveal" onclick="delStop(' + i + ')"><span>🗑️</span>刪除</div>' +
       '<div class="stop' + (i === curStop ? ' active' : '') + '" onclick="selStop(' + i + ')">' +
         '<div class="shead">' +
           '<div class="stime">⏰ ' + s.ti + '</div>' +
@@ -1487,6 +1476,7 @@ function renderStops() {
             '<button class="sord" onclick="moveStop(' + i + ',-1);event.stopPropagation()"' + (i === 0 ? ' disabled' : '') + '>▲</button>' +
             '<button class="sord" onclick="moveStop(' + i + ',1);event.stopPropagation()"' + (i === d.stops.length - 1 ? ' disabled' : '') + '>▼</button>' +
             '<button class="sedit" onclick="openEditStop(' + i + ');event.stopPropagation()">✏️</button>' +
+            '<button class="sdel" onclick="delStop(' + i + ');event.stopPropagation()">🗑️</button>' +
             '<div class="sbadge"><span class="n">' + (i + 1) + '</span><span>/ ' + d.stops.length + '</span></div>' +
           '</div>' +
         '</div>' +
@@ -1509,53 +1499,6 @@ function renderStops() {
     '</div>';
   }).join('');
   updateLegend();
-  attachSwipe();
-}
-
-function attachSwipe() {
-  var DEL_W = 80;
-  document.querySelectorAll('.stop-wrap').forEach(function(wrap) {
-    var inner = wrap.querySelector('.stop');
-    var startX = 0, startTX = 0, dragging = false, revealed = false;
-
-    function getTransX() {
-      var m = inner.style.transform.match(/-?[\d.]+/);
-      return m ? parseFloat(m[0]) : 0;
-    }
-    function snapTo(x, animate) {
-      if (animate) {
-        inner.style.transition = 'transform 0.22s cubic-bezier(.4,0,.2,1)';
-        setTimeout(function() { inner.style.transition = ''; }, 240);
-      }
-      inner.style.transform = x ? 'translateX(' + x + 'px)' : '';
-      revealed = (x !== 0);
-    }
-
-    wrap.addEventListener('touchstart', function(e) {
-      startX = e.touches[0].clientX;
-      startTX = getTransX();
-      dragging = true;
-    }, { passive: true });
-
-    wrap.addEventListener('touchmove', function(e) {
-      if (!dragging) return;
-      var dx = e.touches[0].clientX - startX + startTX;
-      dx = Math.min(0, Math.max(-DEL_W, dx));
-      inner.style.transform = 'translateX(' + dx + 'px)';
-      if (Math.abs(e.touches[0].clientX - startX) > 8) e.preventDefault();
-    }, { passive: false });
-
-    wrap.addEventListener('touchend', function() {
-      if (!dragging) return;
-      dragging = false;
-      snapTo(getTransX() < -(DEL_W * 0.4) ? -DEL_W : 0, true);
-    });
-
-    // 點擊展開狀態下的卡片 → 收回
-    inner.addEventListener('click', function(e) {
-      if (revealed) { snapTo(0, true); e.stopPropagation(); }
-    });
-  });
 }
 
 // ========== ACTIONS ==========
